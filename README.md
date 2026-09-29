@@ -6,7 +6,7 @@ I built this project to practice detection engineering hands-on: standing up a W
 
 ## Architecture
 
-![Architecture Diagram](screenshots/00-architecture-diagram.png)
+[![Architecture Diagram](screenshots/00-architecture-diagram.png)](screenshots/00-architecture-diagram.png)
 
 | Machine | Role | IP |
 |---|---|---|
@@ -36,7 +36,7 @@ Using [NetExec](https://github.com/Pennyw0rth/NetExec) (a SMB-based credential a
 netexec smb 192.168.10.1 -u users.txt -p 'Winter2026!' -d lab.local
 ```
 
-![NetExec Attack](screenshots/02-attack-netexec.png)
+[![NetExec Attack](screenshots/02-attack-netexec.png)](screenshots/02-attack-netexec.png)
 
 Multiple spray attempts were run with different candidate passwords, simulating an attacker trying several common passwords rather than one.
 
@@ -44,7 +44,7 @@ Multiple spray attempts were run with different candidate passwords, simulating 
 
 I initially expected these logon attempts to appear as EventCode 4625 (failed interactive logon) or 4624 (successful interactive logon). They didn't. NetExec authenticates over SMB/NTLM, which Windows logs under **EventCode 4776 (Credential Validation)** instead — a detail I only found by digging through the raw logs when the events I expected weren't there.
 
-![Raw 4776 Log Event](screenshots/01-raw-log-4776.png)
+[![Raw 4776 Log Event](screenshots/01-raw-log-4776.png)](screenshots/01-raw-log-4776.png)
 
 Splunk didn't automatically extract the username from these events, so I wrote a field extraction to pull it out of the raw text:
 
@@ -54,7 +54,7 @@ rex field=_raw "Logon Account:\s+(?<username>\S+)"
 
 Once extracted, I could see a clear timeline of every credential validation attempt, across two real accounts, clustered tightly in time — the signature of a spray, not normal user activity:
 
-![Logon Timeline](screenshots/03-logon-timeline.png)
+[![Logon Timeline](screenshots/03-logon-timeline.png)](screenshots/03-logon-timeline.png)
 
 ## Detection Logic
 
@@ -70,7 +70,7 @@ index=main EventCode=4776 earliest=-10m
 
 This groups credential-validation events into 10-minute windows and flags any window where **2 or more distinct accounts** were targeted — the core signal of a spray attack versus normal, isolated logins.
 
-![Detection Search Results](screenshots/04-detection-search.png)
+[![Detection Search Results](screenshots/04-detection-search.png)](screenshots/04-detection-search.png)
 
 The search correctly identified the attack window, showing 2 unique accounts (`Amike`, `jsmith`) and 4 total authentication attempts.
 
@@ -78,11 +78,11 @@ The search correctly identified the attack window, showing 2 unique accounts (`A
 
 I saved this search as a scheduled Splunk alert, **"Password Spray Detection"**, running automatically every 10 minutes via cron (`*/10 * * * *`) — no manual searching required.
 
-![Alert Configuration](screenshots/05-alert-config.png)
+[![Alert Configuration](screenshots/05-alert-config.png)](screenshots/05-alert-config.png)
 
 After running a fresh attack, the alert fired on its own and appeared under Splunk's Triggered Alerts, with no action needed from me to "discover" it:
 
-![Triggered Alerts](screenshots/06-triggered-alerts.png)
+[![Triggered Alerts](screenshots/06-triggered-alerts.png)](screenshots/06-triggered-alerts.png)
 
 ## Challenges & Lessons Learned
 
